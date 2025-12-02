@@ -4,6 +4,7 @@ import numpy as np
 from torchvision import models, transforms
 from PIL import Image
 import torch.nn.functional as F
+from fastapi import Depends
 
 class_names = [
     "bacterial_blight",
@@ -49,9 +50,11 @@ def load_model():
     model.eval()
     return model
 
-def model_prediction(image_path: str, model, transform):
+def model_prediction(image_path: str):
     """Run prediction on a single PIL image."""
     image = Image.open(image_path).convert("RGB")
+    model = load_model()
+    transform = get_transforms()
     img_t = transform(image).unsqueeze(0).to(device)  # [1, C, H, W]
 
     with torch.no_grad():

@@ -87,30 +87,6 @@ def read_me(current_user: models.User = Depends(get_current_user)):
     return current_user
 
 #Prediction Endpoint API
-@app.post("/prediction/", response_model=schemas.PredictionOut)
-def create_prediction(
-    prediction_in: schemas.PredictionCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)):
-
-    """Create a new prediction row in Predictions table 
-    Return the row"""
-
-
-    db_pred = models.Prediction(
-        user_id = current_user.id,
-        image_url = prediction_in.image_url,
-        predicted_label = prediction_in.predicted_label,
-        confidence = prediction_in.confidence,
-        model_version = prediction_in.model_version or "resnet50_v1",
-    )
-
-    db.add(db_pred)
-    db.commit()
-    db.refresh(db_pred)
-
-    return db_pred
-
 @app.get("/predictions/me", response_model = list[schemas.PredictionOut])
 def list_user_predictions(
     db: Session = Depends(get_db),
