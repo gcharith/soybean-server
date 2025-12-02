@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, File, UploadFile
 from sqlalchemy.orm import Session
+from fastapi.middleware.cors import CORSMiddleware
 
 from database import engine
 import models
@@ -22,7 +23,18 @@ UPLOAD_DIR = "images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI()
+origins = [
+    "http://localhost:8501",
+    "http://127.0.0.1:8501",
+]
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins = origins,
+    allow_credentials = True,
+    allow_methods = ["*"],
+    allow_headers = ["*"],
+)
 #health check initial
 @app.get("/health")
 def health():
@@ -141,3 +153,55 @@ async def predict(
 
     
     return db_pred
+
+
+# --FEEDBACK ENDPOINTS--
+
+@app.post("/feedback/", response_model = schemas.FeedbackOut)
+def create_feedback(
+    feedback_in: schemas.FeedbackCreate,
+    db:Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Accepts user feedback for a prediction and puts it inside a feedback table"""
+
+    pred = db.query(models.Prediction).filter(models.Prediction.id == feedback_in.prediction_id).first()
+    if pred is None:
+        raise HTTPException(
+            status_code= status.HTTP_404_NOT_FOUND,
+            detail= "Prediction does not exist"
+        )
+    if pred.user_id != current_user.id:
+        raise HTTPException(
+            status_code = status.HTTP_403_FORBIDDEN,
+            detail="You can give  feedback to your predictions only."
+        )
+    
+    db_fb = models.Feedback(
+        user_id = current_user.id,
+        prediction_id = pred.id,
+        rating = feedback_in.rating,
+        is_correct = feedback_in.is_correct,
+        comment = feedback_in.comment,
+    )
+
+    db.add(db_fb)
+    db.commit()
+    db.refresh(db_fb)
+
+    return db_fb
+
+@app.get("/feedback/me", response_model = list[schemas.FeedbackOut])
+def list_feedback(
+    db:Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    """Returns all the feedbacks submitted by a user"""
+    fb_list = (
+        db.query(models.Feedback)
+        .filter(models.Feedback.user_id == current_user.id)
+        .order_by(models.Feedback.created_at.desc())
+        .all()
+    )
+
+    return fb_list
