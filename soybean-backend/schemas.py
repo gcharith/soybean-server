@@ -1,11 +1,11 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
 ##USER
 class UserBase(BaseModel):
     name: str
-    email: EmailStr
+    email: str
 
 class UserCreate(UserBase):
     password:str
@@ -20,7 +20,7 @@ class UserOut(UserBase):
 class UserOut(BaseModel):
     id: int
     name: str
-    email: EmailStr
+    email: str
     created_at: datetime
 
     class Config:
