@@ -1,3 +1,7 @@
 soybean-backend/practice.py
 soybean-backend/.env
 soybean-backend/images
+# Ignore SQLite databases
+*.db
+*.sqlite
+*.sqlite3
