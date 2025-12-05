@@ -12,8 +12,12 @@ from auth_deps import get_current_user
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import os
 from uuid import uuid4
+from dotenv import load_dotenv
+load_dotenv()
 
 from ml import model_prediction
+from storage import upload_image_to_s3
+
 #create tables
 models.Base.metadata.create_all(bind=engine)
 
@@ -24,13 +28,13 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 
 app = FastAPI()
 origins = [
-    "http://localhost:8501",
-    "http://127.0.0.1:8501",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins = origins,
+    allow_origins = ["*"],
     allow_credentials = True,
     allow_methods = ["*"],
     allow_headers = ["*"],
@@ -127,21 +131,26 @@ async def predict(
             detail= "File must be an image"
         )
     
+    file_bytes = await file.read()
+
     #saving image to local for now, change to s3 pending
     extension = os.path.splitext(file.filename)[1] or ".jpg"
-    unique_name = f"{uuid4().hex}{extension}"
-    save_path = os.path.join(UPLOAD_DIR, unique_name)
-
-    with open(save_path, "wb") as f:
-        content = await file.read()
-        f.write(content)
-
+    
     #running machine learning model 
-    predicted_label, confidence = model_prediction(save_path)
+    predicted_label, confidence = model_prediction(file_bytes)
 
+    #getting s3 url 
+    s3_url = upload_image_to_s3(
+        file_bytes=file_bytes,
+        predicted_class=predicted_label,
+        extension=extension,
+        content_type=file.content_type
+    )
+
+    #saving prediction to databaseßßß
     db_pred = models.Prediction(
         user_id = current_user.id,
-        image_url = save_path,
+        image_url = s3_url,
         predicted_label = predicted_label,
         confidence = confidence,
         model_version = "resnet50_v1"
